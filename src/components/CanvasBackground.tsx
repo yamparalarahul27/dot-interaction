@@ -2,6 +2,25 @@
 
 import { useEffect, useRef } from 'react';
 
+// Utility to convert hex to RGB
+function hexToRgb(hex: string) {
+    const cleanHex = hex.replace('#', '');
+    const r = parseInt(cleanHex.substring(0, 2), 16) || 0;
+    const g = parseInt(cleanHex.substring(2, 4), 16) || 0;
+    const b = parseInt(cleanHex.substring(4, 6), 16) || 0;
+    return { r, g, b };
+}
+
+// Utility to interpolate between two RGB colors
+function interpolateColor(color1: { r: number, g: number, b: number }, color2: { r: number, g: number, b: number }, factor: number) {
+    const result = {
+        r: Math.round(color1.r + factor * (color2.r - color1.r)),
+        g: Math.round(color1.g + factor * (color2.g - color1.g)),
+        b: Math.round(color1.b + factor * (color2.b - color1.b))
+    };
+    return result;
+}
+
 interface CanvasBackgroundProps {
     dotRadius: number;
     dotSpacing: number;
@@ -13,6 +32,9 @@ interface CanvasBackgroundProps {
     waveIntensity: number;
     waveEnabled: boolean;
     hoverColor: string;
+    gradientFrom: string;
+    gradientTo: string;
+    backgroundColor?: string;
 }
 
 export default function CanvasBackground(props: CanvasBackgroundProps) {
@@ -33,7 +55,7 @@ export default function CanvasBackground(props: CanvasBackgroundProps) {
         let animationFrameId: number;
         let width = 0;
         let height = 0;
-        let dots: { baseX: number; baseY: number; offset: number }[] = [];
+        let dots: { baseX: number; baseY: number; offset: number; normalizedY: number; normalizedX: number }[] = [];
         let mouseX = -1000;
         let mouseY = -1000;
         let currentSpacing = propsRef.current.dotSpacing;
@@ -68,7 +90,11 @@ export default function CanvasBackground(props: CanvasBackgroundProps) {
                     const baseX = i * spacing + offsetX;
                     const baseY = j * spacing + offsetY;
 
-                    dots.push({ baseX, baseY, offset: 0 }); // offset computed dynamically based on angle now
+                    // Normalize position from 0 to 1 for gradient interpolation
+                    const normalizedX = Math.max(0, Math.min(1, baseX / width));
+                    const normalizedY = Math.max(0, Math.min(1, baseY / height));
+
+                    dots.push({ baseX, baseY, offset: 0, normalizedX, normalizedY });
                 }
             }
         };
@@ -82,17 +108,18 @@ export default function CanvasBackground(props: CanvasBackgroundProps) {
             }
 
             // Background clear
-            ctx.fillStyle = '#050505';
+            ctx.fillStyle = p.backgroundColor || '#050505';
             ctx.fillRect(0, 0, width, height);
 
-            // We batch all paths for performance, but since they have different opacities,
-            // it's easier to group them or draw individually. Given 1000-3000 dots, drawing individually is fine
-            // on modern devices, but we can optimize if needed.
-
-            // Precompute direction vector for the wave angle
+            // Precompute wave angle direction vector
             const angleRad = (p.waveAngle * Math.PI) / 180;
             const dirX = Math.cos(angleRad);
             const dirY = Math.sin(angleRad);
+
+            // Precompute gradient colors
+            const colorFrom = hexToRgb(p.gradientFrom);
+            const colorTo = hexToRgb(p.gradientTo);
+            const hoverRgb = hexToRgb(p.hoverColor);
 
             for (let i = 0; i < dots.length; i++) {
                 const dot = dots[i];
@@ -109,9 +136,15 @@ export default function CanvasBackground(props: CanvasBackgroundProps) {
                 let scale = 1 + (wave * 0.3); // vary the size slightly
                 let opacity = 0.4 + (wave * 0.2); // base opacity between 0.2 and 0.6
 
-                let r = 180;
-                let g = 180;
-                let b = 180;
+                // Base Color logic: Interpolate vertically to match CSS linear-gradient(to top)
+                // (top of screen is y=0, bottom is y=height)
+                // If gradient is to top: y=height is colorFrom, y=0 is colorTo
+                const gradientFactor = 1 - dot.normalizedY;
+                let baseColor = interpolateColor(colorFrom, colorTo, gradientFactor);
+
+                let r = baseColor.r;
+                let g = baseColor.g;
+                let b = baseColor.b;
 
                 // Mouse interaction
                 const dx = dot.baseX - mouseX;
@@ -126,16 +159,10 @@ export default function CanvasBackground(props: CanvasBackgroundProps) {
                     scale += interactionFactor * 1.5;
                     opacity += interactionFactor * 0.4;
 
-                    // Convert target hex color to rgb
-                    const hex = p.hoverColor.replace('#', '');
-                    const targetR = parseInt(hex.substring(0, 2), 16) || 0;
-                    const targetG = parseInt(hex.substring(2, 4), 16) || 255;
-                    const targetB = parseInt(hex.substring(4, 6), 16) || 255;
-
-                    // Shift color towards the target hex color based on proximity
-                    r = r + (targetR - r) * interactionFactor;
-                    g = g + (targetG - g) * interactionFactor;
-                    b = b + (targetB - b) * interactionFactor;
+                    // Shift color towards the hover hex color based on proximity
+                    r = r + (hoverRgb.r - r) * interactionFactor;
+                    g = g + (hoverRgb.g - g) * interactionFactor;
+                    b = b + (hoverRgb.b - b) * interactionFactor;
                 }
 
                 ctx.fillStyle = `rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)}, ${Math.max(0.1, Math.min(1, opacity))})`;
@@ -177,8 +204,8 @@ export default function CanvasBackground(props: CanvasBackgroundProps) {
     return (
         <canvas
             ref={canvasRef}
-            className="fixed top-0 left-0 w-full h-full -z-10 bg-[#050505]"
-            style={{ display: 'block', pointerEvents: 'none' }}
+            className="fixed top-0 left-0 w-full h-full -z-10"
+            style={{ display: 'block', pointerEvents: 'none', backgroundColor: props.backgroundColor || '#050505' }}
         />
     );
 }

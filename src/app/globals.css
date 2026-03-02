@@ -19,3 +19,27 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+@keyframes appearBarY {
+  from {
+    transform: scaleY(0);
+    opacity: 0;
+    filter: blur(8px);
+  }
+  to {
+    transform: scaleY(var(--initial-scale));
+    opacity: 1;
+    filter: blur(0px);
+  }
+}
+
+@keyframes pulseBarY {
+  from {
+    transform: scaleY(var(--initial-scale));
+    opacity: 0.8;
+  }
+  to {
+    transform: scaleY(calc(var(--initial-scale) * var(--pulse-multiplier, 1)));
+    opacity: 1;
+  }
+}
