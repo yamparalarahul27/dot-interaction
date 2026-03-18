@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import CanvasBackground from "@/components/CanvasBackground";
 import GradientBars, { BarShape } from "@/components/GradientBars";
 
@@ -111,6 +111,74 @@ export default function Home() {
     setGradientTo(to);
   };
 
+  // Copy / Paste Config
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'ok' | 'err'>('idle');
+  const [pasteStatus, setPasteStatus] = useState<'idle' | 'ok' | 'err'>('idle');
+
+  const getConfig = useCallback(() => ({
+    bgMode,
+    gradientFrom, gradientTo, backgroundColor,
+    dotRadius, dotSpacing, waveSpeed, maxWaveHeight,
+    interactionRadius, mouseRepelStrength, waveAngle,
+    waveIntensity, waveEnabled, hoverColor,
+    barShape, barPulseMode, barNoise, barEdgeFeather,
+    barGlow, barTopFade, barOpacity,
+  }), [
+    bgMode, gradientFrom, gradientTo, backgroundColor,
+    dotRadius, dotSpacing, waveSpeed, maxWaveHeight,
+    interactionRadius, mouseRepelStrength, waveAngle,
+    waveIntensity, waveEnabled, hoverColor,
+    barShape, barPulseMode, barNoise, barEdgeFeather,
+    barGlow, barTopFade, barOpacity,
+  ]);
+
+  const handleCopyConfig = useCallback(async () => {
+    try {
+      const json = JSON.stringify(getConfig());
+      const encoded = btoa(json);
+      await navigator.clipboard.writeText(encoded);
+      setCopyStatus('ok');
+    } catch {
+      setCopyStatus('err');
+    } finally {
+      setTimeout(() => setCopyStatus('idle'), 1800);
+    }
+  }, [getConfig]);
+
+  const handlePasteConfig = useCallback(async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      const json = atob(text.trim());
+      const cfg = JSON.parse(json);
+      if (cfg.bgMode) setBgMode(cfg.bgMode);
+      if (cfg.gradientFrom) setGradientFrom(cfg.gradientFrom);
+      if (cfg.gradientTo) setGradientTo(cfg.gradientTo);
+      if (cfg.backgroundColor) setBackgroundColor(cfg.backgroundColor);
+      if (cfg.dotRadius !== undefined) setDotRadius(cfg.dotRadius);
+      if (cfg.dotSpacing !== undefined) setDotSpacing(cfg.dotSpacing);
+      if (cfg.waveSpeed !== undefined) setWaveSpeed(cfg.waveSpeed);
+      if (cfg.maxWaveHeight !== undefined) setMaxWaveHeight(cfg.maxWaveHeight);
+      if (cfg.interactionRadius !== undefined) setInteractionRadius(cfg.interactionRadius);
+      if (cfg.mouseRepelStrength !== undefined) setMouseRepelStrength(cfg.mouseRepelStrength);
+      if (cfg.waveAngle !== undefined) setWaveAngle(cfg.waveAngle);
+      if (cfg.waveIntensity !== undefined) setWaveIntensity(cfg.waveIntensity);
+      if (cfg.waveEnabled !== undefined) setWaveEnabled(cfg.waveEnabled);
+      if (cfg.hoverColor) setHoverColor(cfg.hoverColor);
+      if (cfg.barShape) setBarShape(cfg.barShape);
+      if (cfg.barPulseMode) setBarPulseMode(cfg.barPulseMode);
+      if (cfg.barNoise !== undefined) setBarNoise(cfg.barNoise);
+      if (cfg.barEdgeFeather !== undefined) setBarEdgeFeather(cfg.barEdgeFeather);
+      if (cfg.barGlow !== undefined) setBarGlow(cfg.barGlow);
+      if (cfg.barTopFade !== undefined) setBarTopFade(cfg.barTopFade);
+      if (cfg.barOpacity !== undefined) setBarOpacity(cfg.barOpacity);
+      setPasteStatus('ok');
+    } catch {
+      setPasteStatus('err');
+    } finally {
+      setTimeout(() => setPasteStatus('idle'), 1800);
+    }
+  }, []);
+
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-center">
       {bgMode === 'dots' ? (
@@ -158,6 +226,50 @@ export default function Home() {
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between mb-1">
             <h2 className="text-sm font-semibold text-white tracking-widest uppercase mb-0">Control Panel</h2>
+            <div className="flex gap-1.5">
+              {/* Copy Config */}
+              <button
+                onClick={handleCopyConfig}
+                title="Copy Config"
+                className={`flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-md border transition-all ${
+                  copyStatus === 'ok'
+                    ? 'bg-green-500/20 border-green-500/50 text-green-400'
+                    : copyStatus === 'err'
+                    ? 'bg-red-500/20 border-red-500/50 text-red-400'
+                    : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:text-white hover:border-neutral-500'
+                }`}
+              >
+                {copyStatus === 'ok' ? '✓' : copyStatus === 'err' ? '✗' : (
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2"/>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  </svg>
+                )}
+                {copyStatus === 'ok' ? 'Copied!' : copyStatus === 'err' ? 'Failed' : 'Copy'}
+              </button>
+              {/* Paste Config */}
+              <button
+                onClick={handlePasteConfig}
+                title="Paste Config"
+                className={`flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-md border transition-all ${
+                  pasteStatus === 'ok'
+                    ? 'bg-green-500/20 border-green-500/50 text-green-400'
+                    : pasteStatus === 'err'
+                    ? 'bg-red-500/20 border-red-500/50 text-red-400'
+                    : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:text-white hover:border-neutral-500'
+                }`}
+              >
+                {pasteStatus === 'ok' ? '✓' : pasteStatus === 'err' ? '✗' : (
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                    <rect x="8" y="2" width="8" height="4" rx="1"/>
+                    <line x1="12" y1="11" x2="12" y2="17"/>
+                    <line x1="9" y1="14" x2="15" y2="14"/>
+                  </svg>
+                )}
+                {pasteStatus === 'ok' ? 'Applied!' : pasteStatus === 'err' ? 'Invalid' : 'Paste'}
+              </button>
+            </div>
           </div>
 
           <div className="flex p-1 bg-neutral-900 rounded-lg">
