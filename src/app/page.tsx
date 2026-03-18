@@ -134,9 +134,8 @@ export default function Home() {
 
   const handleCopyConfig = useCallback(async () => {
     try {
-      const json = JSON.stringify(getConfig());
-      const encoded = btoa(json);
-      await navigator.clipboard.writeText(encoded);
+      const json = JSON.stringify(getConfig(), null, 2);
+      await navigator.clipboard.writeText(json);
       setCopyStatus('ok');
     } catch {
       setCopyStatus('err');
@@ -148,8 +147,7 @@ export default function Home() {
   const handlePasteConfig = useCallback(async () => {
     try {
       const text = await navigator.clipboard.readText();
-      const json = atob(text.trim());
-      const cfg = JSON.parse(json);
+      const cfg = JSON.parse(text.trim());
       if (cfg.bgMode) setBgMode(cfg.bgMode);
       if (cfg.gradientFrom) setGradientFrom(cfg.gradientFrom);
       if (cfg.gradientTo) setGradientTo(cfg.gradientTo);
@@ -215,8 +213,9 @@ export default function Home() {
       )}
 
       {/* Watermark Signature */}
-      <div className="absolute bottom-6 left-6 z-10 text-[12px] font-medium tracking-wide" style={{ color: backgroundColor === '#ffffff' ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)' }}>
-        Experiment by Yamparala Rahul, 2026
+      <div className="absolute bottom-6 left-6 z-10 text-[12px] font-medium tracking-wide flex flex-col gap-1" style={{ color: backgroundColor === '#ffffff' ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)' }}>
+        <span>Experiment by Yamparala Rahul, 2026</span>
+        <span className="opacity-70 text-[10px]">Last updated: March 18, 2026</span>
       </div>
 
       {/* Control Panel */}
