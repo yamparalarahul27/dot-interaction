@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import CanvasBackground from "@/components/CanvasBackground";
 import GradientBars, { BarShape } from "@/components/GradientBars";
 
@@ -77,6 +77,186 @@ function ControlSelect({ label, value, options, onChange }: { label: string; val
   );
 }
 
+interface PanelContentsProps {
+  bgMode: 'dots' | 'bars'; setBgMode: (v: 'dots' | 'bars') => void;
+  backgroundColor: string; setBackgroundColor: (v: string) => void;
+  gradientFrom: string; setGradientFrom: (v: string) => void;
+  gradientTo: string; setGradientTo: (v: string) => void;
+  hoverColor: string; setHoverColor: (v: string) => void;
+  applyPreset: (from: string, to: string) => void;
+  copyStatus: 'idle' | 'ok' | 'err'; handleCopyConfig: () => void;
+  pasteStatus: 'idle' | 'ok' | 'err'; handlePasteConfig: () => void;
+  waveEnabled: boolean; setWaveEnabled: (v: boolean) => void;
+  dotRadius: number; setDotRadius: (v: number) => void;
+  dotSpacing: number; setDotSpacing: (v: number) => void;
+  waveSpeed: number; setWaveSpeed: (v: number) => void;
+  maxWaveHeight: number; setMaxWaveHeight: (v: number) => void;
+  waveAngle: number; setWaveAngle: (v: number) => void;
+  waveIntensity: number; setWaveIntensity: (v: number) => void;
+  interactionRadius: number; setInteractionRadius: (v: number) => void;
+  mouseRepelStrength: number; setMouseRepelStrength: (v: number) => void;
+  barShape: BarShape; setBarShape: (v: BarShape) => void;
+  barTopFade: number; setBarTopFade: (v: number) => void;
+  barOpacity: number; setBarOpacity: (v: number) => void;
+  barPulseMode: 'pulse' | 'gentle-pulse' | 'none'; setBarPulseMode: (v: 'pulse' | 'gentle-pulse' | 'none') => void;
+  barNoise: boolean; setBarNoise: (v: boolean) => void;
+  barEdgeFeather: boolean; setBarEdgeFeather: (v: boolean) => void;
+  barGlow: boolean; setBarGlow: (v: boolean) => void;
+}
+
+function PanelContents(p: PanelContentsProps) {
+  return (
+    <>
+      {/* Global Controls */}
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="text-sm font-semibold text-white tracking-widest uppercase mb-0 hidden md:block">Control Panel</h2>
+          <div className="flex gap-1.5">
+            <button
+              onClick={p.handleCopyConfig}
+              title="Copy Config"
+              className={`flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-md border transition-all ${
+                p.copyStatus === 'ok'
+                  ? 'bg-green-500/20 border-green-500/50 text-green-400'
+                  : p.copyStatus === 'err'
+                  ? 'bg-red-500/20 border-red-500/50 text-red-400'
+                  : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:text-white hover:border-neutral-500'
+              }`}
+            >
+              {p.copyStatus === 'ok' ? '✓' : p.copyStatus === 'err' ? '✗' : (
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2"/>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                </svg>
+              )}
+              {p.copyStatus === 'ok' ? 'Copied!' : p.copyStatus === 'err' ? 'Failed' : 'Copy'}
+            </button>
+            <button
+              onClick={p.handlePasteConfig}
+              title="Paste Config"
+              className={`flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-md border transition-all ${
+                p.pasteStatus === 'ok'
+                  ? 'bg-green-500/20 border-green-500/50 text-green-400'
+                  : p.pasteStatus === 'err'
+                  ? 'bg-red-500/20 border-red-500/50 text-red-400'
+                  : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:text-white hover:border-neutral-500'
+              }`}
+            >
+              {p.pasteStatus === 'ok' ? '✓' : p.pasteStatus === 'err' ? '✗' : (
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                  <rect x="8" y="2" width="8" height="4" rx="1"/>
+                  <line x1="12" y1="11" x2="12" y2="17"/>
+                  <line x1="9" y1="14" x2="15" y2="14"/>
+                </svg>
+              )}
+              {p.pasteStatus === 'ok' ? 'Applied!' : p.pasteStatus === 'err' ? 'Invalid' : 'Paste'}
+            </button>
+          </div>
+        </div>
+
+        <div className="flex p-1 bg-neutral-900 rounded-lg">
+          <button
+            className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${p.bgMode === 'dots' ? 'bg-neutral-700 text-white font-medium' : 'text-neutral-500 hover:text-neutral-300'}`}
+            onClick={() => p.setBgMode('dots')}
+          >
+            DOTS
+          </button>
+          <button
+            className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${p.bgMode === 'bars' ? 'bg-neutral-700 text-white font-medium' : 'text-neutral-500 hover:text-neutral-300'}`}
+            onClick={() => p.setBgMode('bars')}
+          >
+            BARS
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-2 mt-2">
+          <span className="text-xs text-neutral-500 font-medium uppercase tracking-wider">Canvas Background</span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => p.setBackgroundColor('#ffffff')}
+              className={`flex-1 text-xs py-1 rounded border transition-colors ${p.backgroundColor === '#ffffff' ? 'border-neutral-500 text-white' : 'border-neutral-800 text-neutral-500'}`}
+            >
+              White
+            </button>
+            <button
+              onClick={() => p.setBackgroundColor('#050505')}
+              className={`flex-1 text-xs py-1 rounded border transition-colors ${p.backgroundColor === '#050505' ? 'border-neutral-500 text-white' : 'border-neutral-800 text-neutral-500'}`}
+            >
+              Black
+            </button>
+            <div className="flex-1 flex justify-end">
+              <ControlColor label="" value={p.backgroundColor} onChange={p.setBackgroundColor} />
+            </div>
+          </div>
+
+          <hr className="border-neutral-800 my-1" />
+
+          <span className="text-xs text-neutral-500 font-medium uppercase tracking-wider">Global Gradient</span>
+          <ControlColor label="Gradient From" value={p.gradientFrom} onChange={p.setGradientFrom} />
+          <ControlColor label="Gradient To" value={p.gradientTo} onChange={p.setGradientTo} />
+
+          <div className="flex gap-2 mt-1">
+            <button onClick={() => p.applyPreset('#ff0080', '#7928ca')} className="w-5 h-5 rounded-full shadow-inner bg-gradient-to-tr from-[#ff0080] to-[#7928ca]" title="Neon Purple" />
+            <button onClick={() => p.applyPreset('#f59e0b', '#ef4444')} className="w-5 h-5 rounded-full shadow-inner bg-gradient-to-tr from-[#f59e0b] to-[#ef4444]" title="Sunset" />
+            <button onClick={() => p.applyPreset('#06b6d4', '#3b82f6')} className="w-5 h-5 rounded-full shadow-inner bg-gradient-to-tr from-[#06b6d4] to-[#3b82f6]" title="Ocean" />
+            <button onClick={() => p.applyPreset('#10b981', '#064e3b')} className="w-5 h-5 rounded-full shadow-inner bg-gradient-to-tr from-[#10b981] to-[#064e3b]" title="Forest" />
+          </div>
+
+          <div className="mt-1">
+            <ControlColor label="Hover Glow" value={p.hoverColor} onChange={p.setHoverColor} />
+          </div>
+        </div>
+      </div>
+
+      <hr className="border-neutral-800" />
+
+      {/* Mode Specific Controls */}
+      {p.bgMode === 'dots' ? (
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-sm font-semibold text-white tracking-widest uppercase mb-0">Dot Wave</h2>
+            <ControlToggle label="Active" value={p.waveEnabled} onChange={p.setWaveEnabled} />
+          </div>
+          <ControlSlider label="Dot Size" min={0.5} max={5} step={0.1} value={p.dotRadius} onChange={p.setDotRadius} />
+          <ControlSlider label="Dot Spacing" min={10} max={60} step={1} value={p.dotSpacing} onChange={p.setDotSpacing} />
+          <ControlSlider label="Wave Speed" min={0} max={0.01} step={0.0005} value={p.waveSpeed} onChange={p.setWaveSpeed} />
+          <ControlSlider label="Wave Height" min={0} max={100} step={1} value={p.maxWaveHeight} onChange={p.setMaxWaveHeight} />
+          <ControlSlider label="Wave Angle" min={0} max={360} step={1} value={p.waveAngle} onChange={p.setWaveAngle} />
+          <ControlSlider label="Wave Intensity" min={0} max={0.05} step={0.001} value={p.waveIntensity} onChange={p.setWaveIntensity} />
+          <ControlSlider label="Interaction Radius" min={50} max={500} step={10} value={p.interactionRadius} onChange={p.setInteractionRadius} />
+          <ControlSlider label="Repel Strength" min={0} max={100} step={1} value={p.mouseRepelStrength} onChange={p.setMouseRepelStrength} />
+        </div>
+      ) : (
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-sm font-semibold text-white tracking-widest uppercase mb-1">Gradient Bars</h2>
+            <ControlToggle label="Wave Motion" value={p.waveEnabled} onChange={p.setWaveEnabled} />
+          </div>
+          <ControlSlider label="Wave Speed" min={0} max={0.005} step={0.0001} value={p.waveSpeed} onChange={p.setWaveSpeed} />
+          <ControlSelect
+            label="Base Shape"
+            value={p.barShape}
+            options={['valley', 'hill', 'rounded-hill', 'wave', 'ramp-left', 'ramp-right', 'flat']}
+            onChange={(v) => p.setBarShape(v as BarShape)}
+          />
+          <ControlSlider label="Top Fade Gradient %" min={0} max={100} step={1} value={p.barTopFade} onChange={p.setBarTopFade} />
+          <ControlSlider label="Overall Opacity" min={0.1} max={1} step={0.05} value={p.barOpacity} onChange={p.setBarOpacity} />
+          <ControlSelect
+            label="Opacity Pulse"
+            value={p.barPulseMode}
+            options={['none', 'gentle-pulse', 'pulse']}
+            onChange={(v) => p.setBarPulseMode(v as 'pulse' | 'gentle-pulse' | 'none')}
+          />
+          <ControlToggle label="Noise Texture" value={p.barNoise} onChange={p.setBarNoise} />
+          <ControlToggle label="Edge Feather Mask" value={p.barEdgeFeather} onChange={p.setBarEdgeFeather} />
+          <ControlToggle label="Bottom Glow" value={p.barGlow} onChange={p.setBarGlow} />
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function Home() {
   // Global Mode
   const [bgMode, setBgMode] = useState<'dots' | 'bars'>('dots');
@@ -110,6 +290,35 @@ export default function Home() {
     setGradientFrom(from);
     setGradientTo(to);
   };
+
+  // Bottom Sheet State
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const dragStartY = useRef(0);
+  const dragStartOpen = useRef(false);
+
+  const handleSheetTouchStart = useCallback((e: React.TouchEvent) => {
+    dragStartY.current = e.touches[0].clientY;
+    dragStartOpen.current = sheetOpen;
+  }, [sheetOpen]);
+
+  const handleSheetTouchEnd = useCallback((e: React.TouchEvent) => {
+    const deltaY = e.changedTouches[0].clientY - dragStartY.current;
+    const threshold = 50;
+    if (dragStartOpen.current && deltaY > threshold) {
+      setSheetOpen(false);
+    } else if (!dragStartOpen.current && deltaY < -threshold) {
+      setSheetOpen(true);
+    }
+  }, []);
+
+  // Close sheet on desktop resize
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px)');
+    const handler = () => { if (mq.matches) setSheetOpen(false); };
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
 
   // Copy / Paste Config
   const [copyStatus, setCopyStatus] = useState<'idle' | 'ok' | 'err'>('idle');
@@ -213,163 +422,111 @@ export default function Home() {
       )}
 
       {/* Watermark Signature */}
-      <div className="absolute bottom-6 left-6 z-10 text-[12px] font-medium tracking-wide flex flex-col gap-1" style={{ color: backgroundColor === '#ffffff' ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)' }}>
+      <div className="absolute bottom-20 md:bottom-6 left-6 z-10 text-[12px] font-medium tracking-wide flex flex-col gap-1" style={{ color: backgroundColor === '#ffffff' ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)' }}>
         <span>Experiment by Yamparala Rahul, 2026</span>
         <span className="opacity-70 text-[10px]">Last updated: March 18, 2026</span>
       </div>
 
-      {/* Control Panel */}
-      <div className="absolute top-6 right-6 z-10 p-5 bg-neutral-950/80 backdrop-blur-xl rounded-2xl border border-white/10 flex flex-col gap-5 w-72 shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar">
+      {/* Desktop Control Panel — hidden on mobile */}
+      <div className="hidden md:flex absolute top-6 right-6 z-10 p-5 bg-neutral-950/80 backdrop-blur-xl rounded-2xl border border-white/10 flex-col gap-5 w-72 shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar">
+        <PanelContents
+          bgMode={bgMode} setBgMode={setBgMode}
+          backgroundColor={backgroundColor} setBackgroundColor={setBackgroundColor}
+          gradientFrom={gradientFrom} setGradientFrom={setGradientFrom}
+          gradientTo={gradientTo} setGradientTo={setGradientTo}
+          hoverColor={hoverColor} setHoverColor={setHoverColor}
+          applyPreset={applyPreset}
+          copyStatus={copyStatus} handleCopyConfig={handleCopyConfig}
+          pasteStatus={pasteStatus} handlePasteConfig={handlePasteConfig}
+          waveEnabled={waveEnabled} setWaveEnabled={setWaveEnabled}
+          dotRadius={dotRadius} setDotRadius={setDotRadius}
+          dotSpacing={dotSpacing} setDotSpacing={setDotSpacing}
+          waveSpeed={waveSpeed} setWaveSpeed={setWaveSpeed}
+          maxWaveHeight={maxWaveHeight} setMaxWaveHeight={setMaxWaveHeight}
+          waveAngle={waveAngle} setWaveAngle={setWaveAngle}
+          waveIntensity={waveIntensity} setWaveIntensity={setWaveIntensity}
+          interactionRadius={interactionRadius} setInteractionRadius={setInteractionRadius}
+          mouseRepelStrength={mouseRepelStrength} setMouseRepelStrength={setMouseRepelStrength}
+          barShape={barShape} setBarShape={setBarShape}
+          barTopFade={barTopFade} setBarTopFade={setBarTopFade}
+          barOpacity={barOpacity} setBarOpacity={setBarOpacity}
+          barPulseMode={barPulseMode} setBarPulseMode={setBarPulseMode}
+          barNoise={barNoise} setBarNoise={setBarNoise}
+          barEdgeFeather={barEdgeFeather} setBarEdgeFeather={setBarEdgeFeather}
+          barGlow={barGlow} setBarGlow={setBarGlow}
+        />
+      </div>
 
-        {/* Global Controls */}
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between mb-1">
-            <h2 className="text-sm font-semibold text-white tracking-widest uppercase mb-0">Control Panel</h2>
-            <div className="flex gap-1.5">
-              {/* Copy Config */}
-              <button
-                onClick={handleCopyConfig}
-                title="Copy Config"
-                className={`flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-md border transition-all ${
-                  copyStatus === 'ok'
-                    ? 'bg-green-500/20 border-green-500/50 text-green-400'
-                    : copyStatus === 'err'
-                    ? 'bg-red-500/20 border-red-500/50 text-red-400'
-                    : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:text-white hover:border-neutral-500'
-                }`}
+      {/* Mobile Bottom Sheet */}
+      <div className="md:hidden fixed inset-x-0 bottom-0 z-50">
+        {/* Backdrop */}
+        {sheetOpen && (
+          <div
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => setSheetOpen(false)}
+          />
+        )}
+
+        {/* Sheet */}
+        <div
+          ref={sheetRef}
+          onTouchStart={handleSheetTouchStart}
+          onTouchEnd={handleSheetTouchEnd}
+          className={`relative bg-neutral-950/95 backdrop-blur-xl border-t border-white/10 rounded-t-2xl shadow-2xl transition-transform duration-300 ease-out ${
+            sheetOpen ? 'translate-y-0' : 'translate-y-[calc(100%-56px)]'
+          }`}
+          style={{ maxHeight: '85vh' }}
+        >
+          {/* Drag Handle + Peek Header */}
+          <div
+            className="flex flex-col items-center pt-2 pb-3 px-5 cursor-pointer"
+            onClick={() => setSheetOpen(o => !o)}
+          >
+            <div className="w-10 h-1 rounded-full bg-neutral-600 mb-3" />
+            <div className="flex items-center justify-between w-full">
+              <h2 className="text-sm font-semibold text-white tracking-widest uppercase">Control Panel</h2>
+              <svg
+                width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                className={`text-neutral-400 transition-transform duration-300 ${sheetOpen ? 'rotate-180' : ''}`}
               >
-                {copyStatus === 'ok' ? '✓' : copyStatus === 'err' ? '✗' : (
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="9" y="9" width="13" height="13" rx="2"/>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                  </svg>
-                )}
-                {copyStatus === 'ok' ? 'Copied!' : copyStatus === 'err' ? 'Failed' : 'Copy'}
-              </button>
-              {/* Paste Config */}
-              <button
-                onClick={handlePasteConfig}
-                title="Paste Config"
-                className={`flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-md border transition-all ${
-                  pasteStatus === 'ok'
-                    ? 'bg-green-500/20 border-green-500/50 text-green-400'
-                    : pasteStatus === 'err'
-                    ? 'bg-red-500/20 border-red-500/50 text-red-400'
-                    : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:text-white hover:border-neutral-500'
-                }`}
-              >
-                {pasteStatus === 'ok' ? '✓' : pasteStatus === 'err' ? '✗' : (
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
-                    <rect x="8" y="2" width="8" height="4" rx="1"/>
-                    <line x1="12" y1="11" x2="12" y2="17"/>
-                    <line x1="9" y1="14" x2="15" y2="14"/>
-                  </svg>
-                )}
-                {pasteStatus === 'ok' ? 'Applied!' : pasteStatus === 'err' ? 'Invalid' : 'Paste'}
-              </button>
+                <polyline points="18 15 12 9 6 15" />
+              </svg>
             </div>
           </div>
 
-          <div className="flex p-1 bg-neutral-900 rounded-lg">
-            <button
-              className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${bgMode === 'dots' ? 'bg-neutral-700 text-white font-medium' : 'text-neutral-500 hover:text-neutral-300'}`}
-              onClick={() => setBgMode('dots')}
-            >
-              DOTS
-            </button>
-            <button
-              className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${bgMode === 'bars' ? 'bg-neutral-700 text-white font-medium' : 'text-neutral-500 hover:text-neutral-300'}`}
-              onClick={() => setBgMode('bars')}
-            >
-              BARS
-            </button>
-          </div>
-
-          <div className="flex flex-col gap-2 mt-2">
-            <span className="text-xs text-neutral-500 font-medium uppercase tracking-wider">Canvas Background</span>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setBackgroundColor('#ffffff')}
-                className={`flex-1 text-xs py-1 rounded border transition-colors ${backgroundColor === '#ffffff' ? 'border-neutral-500 text-white' : 'border-neutral-800 text-neutral-500'}`}
-              >
-                White
-              </button>
-              <button
-                onClick={() => setBackgroundColor('#050505')}
-                className={`flex-1 text-xs py-1 rounded border transition-colors ${backgroundColor === '#050505' ? 'border-neutral-500 text-white' : 'border-neutral-800 text-neutral-500'}`}
-              >
-                Black
-              </button>
-              <div className="flex-1 flex justify-end">
-                <ControlColor label="" value={backgroundColor} onChange={setBackgroundColor} />
-              </div>
-            </div>
-
-            <hr className="border-neutral-800 my-1" />
-
-            <span className="text-xs text-neutral-500 font-medium uppercase tracking-wider">Global Gradient</span>
-            <ControlColor label="Gradient From" value={gradientFrom} onChange={setGradientFrom} />
-            <ControlColor label="Gradient To" value={gradientTo} onChange={setGradientTo} />
-
-            <div className="flex gap-2 mt-1">
-              <button onClick={() => applyPreset('#ff0080', '#7928ca')} className="w-5 h-5 rounded-full shadow-inner bg-gradient-to-tr from-[#ff0080] to-[#7928ca]" title="Neon Purple" />
-              <button onClick={() => applyPreset('#f59e0b', '#ef4444')} className="w-5 h-5 rounded-full shadow-inner bg-gradient-to-tr from-[#f59e0b] to-[#ef4444]" title="Sunset" />
-              <button onClick={() => applyPreset('#06b6d4', '#3b82f6')} className="w-5 h-5 rounded-full shadow-inner bg-gradient-to-tr from-[#06b6d4] to-[#3b82f6]" title="Ocean" />
-              <button onClick={() => applyPreset('#10b981', '#064e3b')} className="w-5 h-5 rounded-full shadow-inner bg-gradient-to-tr from-[#10b981] to-[#064e3b]" title="Forest" />
-            </div>
-
-            <div className="mt-1">
-              <ControlColor label="Hover Glow" value={hoverColor} onChange={setHoverColor} />
+          {/* Scrollable Content */}
+          <div className="overflow-y-auto custom-scrollbar px-5 pb-8" style={{ maxHeight: 'calc(85vh - 56px)' }}>
+            <div className="flex flex-col gap-5">
+              <PanelContents
+                bgMode={bgMode} setBgMode={setBgMode}
+                backgroundColor={backgroundColor} setBackgroundColor={setBackgroundColor}
+                gradientFrom={gradientFrom} setGradientFrom={setGradientFrom}
+                gradientTo={gradientTo} setGradientTo={setGradientTo}
+                hoverColor={hoverColor} setHoverColor={setHoverColor}
+                applyPreset={applyPreset}
+                copyStatus={copyStatus} handleCopyConfig={handleCopyConfig}
+                pasteStatus={pasteStatus} handlePasteConfig={handlePasteConfig}
+                waveEnabled={waveEnabled} setWaveEnabled={setWaveEnabled}
+                dotRadius={dotRadius} setDotRadius={setDotRadius}
+                dotSpacing={dotSpacing} setDotSpacing={setDotSpacing}
+                waveSpeed={waveSpeed} setWaveSpeed={setWaveSpeed}
+                maxWaveHeight={maxWaveHeight} setMaxWaveHeight={setMaxWaveHeight}
+                waveAngle={waveAngle} setWaveAngle={setWaveAngle}
+                waveIntensity={waveIntensity} setWaveIntensity={setWaveIntensity}
+                interactionRadius={interactionRadius} setInteractionRadius={setInteractionRadius}
+                mouseRepelStrength={mouseRepelStrength} setMouseRepelStrength={setMouseRepelStrength}
+                barShape={barShape} setBarShape={setBarShape}
+                barTopFade={barTopFade} setBarTopFade={setBarTopFade}
+                barOpacity={barOpacity} setBarOpacity={setBarOpacity}
+                barPulseMode={barPulseMode} setBarPulseMode={setBarPulseMode}
+                barNoise={barNoise} setBarNoise={setBarNoise}
+                barEdgeFeather={barEdgeFeather} setBarEdgeFeather={setBarEdgeFeather}
+                barGlow={barGlow} setBarGlow={setBarGlow}
+              />
             </div>
           </div>
         </div>
-
-        <hr className="border-neutral-800" />
-
-        {/* Mode Specific Controls */}
-        {bgMode === 'dots' ? (
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between mb-1">
-              <h2 className="text-sm font-semibold text-white tracking-widest uppercase mb-0">Dot Wave</h2>
-              <ControlToggle label="Active" value={waveEnabled} onChange={setWaveEnabled} />
-            </div>
-            <ControlSlider label="Dot Size" min={0.5} max={5} step={0.1} value={dotRadius} onChange={setDotRadius} />
-            <ControlSlider label="Dot Spacing" min={10} max={60} step={1} value={dotSpacing} onChange={setDotSpacing} />
-            <ControlSlider label="Wave Speed" min={0} max={0.01} step={0.0005} value={waveSpeed} onChange={setWaveSpeed} />
-            <ControlSlider label="Wave Height" min={0} max={100} step={1} value={maxWaveHeight} onChange={setMaxWaveHeight} />
-            <ControlSlider label="Wave Angle" min={0} max={360} step={1} value={waveAngle} onChange={setWaveAngle} />
-            <ControlSlider label="Wave Intensity" min={0} max={0.05} step={0.001} value={waveIntensity} onChange={setWaveIntensity} />
-            <ControlSlider label="Interaction Radius" min={50} max={500} step={10} value={interactionRadius} onChange={setInteractionRadius} />
-            <ControlSlider label="Repel Strength" min={0} max={100} step={1} value={mouseRepelStrength} onChange={setMouseRepelStrength} />
-          </div>
-        ) : (
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between mb-1">
-              <h2 className="text-sm font-semibold text-white tracking-widest uppercase mb-1">Gradient Bars</h2>
-              <ControlToggle label="Wave Motion" value={waveEnabled} onChange={setWaveEnabled} />
-            </div>
-            <ControlSlider label="Wave Speed" min={0} max={0.005} step={0.0001} value={waveSpeed} onChange={setWaveSpeed} />
-            <ControlSelect
-              label="Base Shape"
-              value={barShape}
-              options={['valley', 'hill', 'rounded-hill', 'wave', 'ramp-left', 'ramp-right', 'flat']}
-              onChange={(v) => setBarShape(v as BarShape)}
-            />
-            <ControlSlider label="Top Fade Gradient %" min={0} max={100} step={1} value={barTopFade} onChange={setBarTopFade} />
-            <ControlSlider label="Overall Opacity" min={0.1} max={1} step={0.05} value={barOpacity} onChange={setBarOpacity} />
-            <ControlSelect
-              label="Opacity Pulse"
-              value={barPulseMode}
-              options={['none', 'gentle-pulse', 'pulse']}
-              onChange={(v) => setBarPulseMode(v as any)}
-            />
-            <ControlToggle label="Noise Texture" value={barNoise} onChange={setBarNoise} />
-            <ControlToggle label="Edge Feather Mask" value={barEdgeFeather} onChange={setBarEdgeFeather} />
-            <ControlToggle label="Bottom Glow" value={barGlow} onChange={setBarGlow} />
-          </div>
-        )}
-
       </div>
 
       {/* Some CSS tweaks for scrollbar inside the panel */}
