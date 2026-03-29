@@ -34,11 +34,11 @@ body {
 }
 
 @keyframes pulseBarY {
-  from {
+  0% {
     transform: scaleY(var(--initial-scale));
-    opacity: 0.8;
+    opacity: 0.85;
   }
-  to {
+  100% {
     transform: scaleY(calc(var(--initial-scale) * var(--pulse-multiplier, 1)));
     opacity: 1;
   }
