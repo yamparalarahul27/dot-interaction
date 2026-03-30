@@ -90,30 +90,32 @@ export default function GradientBars({
     });
   }, [shape, barCount]);
 
-  return (
-    <div className="fixed inset-0 -z-10 overflow-hidden flex flex-col justify-end" style={{ backgroundColor }}>
+  // Map waveSpeed to a pulse duration (slower speed = longer duration)
+  // waveSpeed range is 0–0.005; map to ~6s (slow) down to ~1s (fast)
+  const pulseDuration = waveSpeed > 0 ? Math.max(1, 6 - (waveSpeed / 0.005) * 5) : 2;
 
-      {/* Bars Container perfectly matching reference structure */}
+  // Pulse multiplier: >1 to scale up from initial, creating a visible pulse
+  const pulseMultiplier = pulseMode === 'pulse' ? 1.4 : pulseMode === 'gentle-pulse' ? 1.15 : 1;
+
+  return (
+    <div className="fixed inset-0 -z-10 overflow-hidden" style={{ backgroundColor }}>
+
+      {/* Bars Container — anchored to bottom */}
       <div
-        className="absolute inset-0 flex flex-row w-[calc(100%+2px)] h-full bottom-0 -ml-[1px]"
+        className="absolute bottom-0 left-0 right-0 flex flex-row"
         style={{
-          gap: 0,
+          height: '100%',
+          marginLeft: '-1px',
+          width: 'calc(100% + 2px)',
           transform: 'translateZ(0)',
           backfaceVisibility: 'hidden',
-          // Apply edge feather mask if requested
           maskImage: edgeFeather ? 'linear-gradient(to right, transparent, black 15%, black 85%, transparent)' : 'none',
           WebkitMaskImage: edgeFeather ? 'linear-gradient(to right, transparent, black 15%, black 85%, transparent)' : 'none',
         }}
       >
         {bars.map((bar, i) => {
-          // Reconstruct the exact inline style string logic from the reference HTML.
-          // We use global from/to instead of the multi-stop oklch for simplicity unless requested.
-          // But we simulate the angle shift.
-
-          // Generate standard CSS animations for appear/pulse based on toggles
-          // Flow/Wave motion is handled by the staggered infinite alternate pulse.
           const animationString = waveEnabled
-            ? `0.8s cubic-bezier(0.22, 1, 0.36, 1) ${bar.staggerDelayAppear}s 1 normal both running appearBarY, 2s ease-in-out ${bar.staggerDelayPulse}s infinite alternate none running pulseBarY`
+            ? `0.8s cubic-bezier(0.22, 1, 0.36, 1) ${bar.staggerDelayAppear}s 1 normal both running appearBarY, ${pulseDuration}s ease-in-out ${bar.staggerDelayPulse}s infinite alternate both running pulseBarY`
             : `0.8s cubic-bezier(0.22, 1, 0.36, 1) ${bar.staggerDelayAppear}s 1 normal both running appearBarY`;
 
           return (
@@ -121,25 +123,33 @@ export default function GradientBars({
               key={bar.id}
               style={{
                 flex: '1 0 0px',
+                alignSelf: 'flex-end',
                 height: '100%',
-                // Include transparent fade at the top (0%) shifting down based on topFade control
                 background: `linear-gradient(${bar.angle}deg, transparent 0%, ${gradientFrom} ${topFade}%, ${gradientTo} 100%)`,
                 transformOrigin: 'center bottom',
-                transform: `scaleY(${bar.scale})`,
                 animation: animationString,
                 boxSizing: 'border-box',
-                marginRight: i === bars.length - 1 ? '0px' : '-1px', // overlap slightly to avoid antialiasing gaps
+                marginRight: i === bars.length - 1 ? '0px' : '-1px',
                 opacity: baseOpacity,
                 mixBlendMode: 'normal',
-                boxShadow: glow ? `0 0 40px -10px ${gradientTo}` : 'none',
-                // CSS variables used by the keyframes
                 '--initial-scale': bar.scale,
-                '--pulse-multiplier': pulseMode === 'pulse' ? 0.4 : pulseMode === 'gentle-pulse' ? 0.7 : 1,
+                '--pulse-multiplier': pulseMultiplier,
               } as React.CSSProperties}
             />
           );
         })}
       </div>
+
+      {/* Bottom glow — separate layer so it doesn't scale with bars */}
+      {glow && (
+        <div
+          className="absolute bottom-0 left-0 right-0 h-40 pointer-events-none"
+          style={{
+            background: `linear-gradient(to top, ${gradientTo}33, transparent)`,
+            filter: `blur(20px)`,
+          }}
+        />
+      )}
 
       {/* Optional Noise Overlay */}
       {noiseOverlay && (
