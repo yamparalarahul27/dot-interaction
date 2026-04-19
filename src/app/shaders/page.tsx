@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import ShaderCard from '@/components/shaders/ShaderCard';
-import { presets, shadersById } from '@/shaders/registry';
+import { presets } from '@/shaders/registry';
 
 export const metadata = {
   title: 'Shader Gallery',
@@ -29,11 +29,9 @@ export default function ShadersPage() {
         </header>
 
         <div className="flex flex-col gap-8">
-          {presets.map((preset) => {
-            const shader = shadersById[preset.shaderId];
-            if (!shader) return null;
-            return <ShaderCard key={preset.id} preset={preset} shader={shader} />;
-          })}
+          {presets.map((preset) => (
+            <ShaderCard key={preset.id} preset={preset} />
+          ))}
         </div>
 
         <footer className="text-xs text-neutral-600 pt-4 pb-10">

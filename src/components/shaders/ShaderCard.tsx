@@ -1,18 +1,29 @@
 'use client';
 
 import { useState } from 'react';
-import type { PresetDef, ShaderDef, ParamValues } from '@/shaders/types';
+import type { PresetDef, ParamValues } from '@/shaders/types';
 import { resolvePreset } from '@/shaders/types';
+import { shadersById } from '@/shaders/registry';
 import ShaderCanvas from './ShaderCanvas';
 import ShaderControls from './ShaderControls';
 
 interface Props {
   preset: PresetDef;
-  shader: ShaderDef;
 }
 
-export default function ShaderCard({ preset, shader }: Props) {
-  const [values, setValues] = useState<ParamValues>(() => resolvePreset(preset, shader));
+export default function ShaderCard({ preset }: Props) {
+  const shader = shadersById[preset.shaderId];
+  const [values, setValues] = useState<ParamValues>(() =>
+    shader ? resolvePreset(preset, shader) : {},
+  );
+
+  if (!shader) {
+    return (
+      <section className="rounded-2xl border border-red-500/30 bg-red-500/5 p-5 text-xs text-red-300">
+        Unknown shader id: <code>{preset.shaderId}</code>
+      </section>
+    );
+  }
 
   const update = (key: string, value: ParamValues[string]) => {
     setValues((prev) => ({ ...prev, [key]: value }));
