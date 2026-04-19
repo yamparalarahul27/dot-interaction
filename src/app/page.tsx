@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import CanvasBackground from "@/components/CanvasBackground";
 import GradientBars, { BarShape } from "@/components/GradientBars";
+import ShaderBackground from "@/components/ShaderBackground";
 
 interface SliderProps {
   label: string;
@@ -77,8 +78,10 @@ function ControlSelect({ label, value, options, onChange }: { label: string; val
   );
 }
 
+type BgMode = 'dots' | 'bars' | 'shader';
+
 interface PanelContentsProps {
-  bgMode: 'dots' | 'bars'; setBgMode: (v: 'dots' | 'bars') => void;
+  bgMode: BgMode; setBgMode: (v: BgMode) => void;
   backgroundColor: string; setBackgroundColor: (v: string) => void;
   gradientFrom: string; setGradientFrom: (v: string) => void;
   gradientTo: string; setGradientTo: (v: string) => void;
@@ -102,6 +105,12 @@ interface PanelContentsProps {
   barNoise: boolean; setBarNoise: (v: boolean) => void;
   barEdgeFeather: boolean; setBarEdgeFeather: (v: boolean) => void;
   barGlow: boolean; setBarGlow: (v: boolean) => void;
+  shaderEnabled: boolean; setShaderEnabled: (v: boolean) => void;
+  shaderSpeed: number; setShaderSpeed: (v: number) => void;
+  shaderScale: number; setShaderScale: (v: number) => void;
+  shaderIntensity: number; setShaderIntensity: (v: number) => void;
+  shaderDistortion: number; setShaderDistortion: (v: number) => void;
+  shaderGrain: boolean; setShaderGrain: (v: boolean) => void;
 }
 
 function PanelContents(p: PanelContentsProps) {
@@ -168,6 +177,12 @@ function PanelContents(p: PanelContentsProps) {
           >
             BARS
           </button>
+          <button
+            className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${p.bgMode === 'shader' ? 'bg-neutral-700 text-white font-medium' : 'text-neutral-500 hover:text-neutral-300'}`}
+            onClick={() => p.setBgMode('shader')}
+          >
+            SHADER
+          </button>
         </div>
 
         <div className="flex flex-col gap-2 mt-2">
@@ -212,7 +227,19 @@ function PanelContents(p: PanelContentsProps) {
       <hr className="border-neutral-800" />
 
       {/* Mode Specific Controls */}
-      {p.bgMode === 'dots' ? (
+      {p.bgMode === 'shader' ? (
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-sm font-semibold text-white tracking-widest uppercase mb-0">Shader Flow</h2>
+            <ControlToggle label="Animate" value={p.shaderEnabled} onChange={p.setShaderEnabled} />
+          </div>
+          <ControlSlider label="Flow Speed" min={0} max={3} step={0.05} value={p.shaderSpeed} onChange={p.setShaderSpeed} />
+          <ControlSlider label="Noise Scale" min={0.5} max={6} step={0.1} value={p.shaderScale} onChange={p.setShaderScale} />
+          <ControlSlider label="Intensity" min={0} max={1} step={0.01} value={p.shaderIntensity} onChange={p.setShaderIntensity} />
+          <ControlSlider label="Distortion" min={0} max={6} step={0.05} value={p.shaderDistortion} onChange={p.setShaderDistortion} />
+          <ControlToggle label="Film Grain" value={p.shaderGrain} onChange={p.setShaderGrain} />
+        </div>
+      ) : p.bgMode === 'dots' ? (
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between mb-1">
             <h2 className="text-sm font-semibold text-white tracking-widest uppercase mb-0">Dot Wave</h2>
@@ -259,7 +286,7 @@ function PanelContents(p: PanelContentsProps) {
 
 export default function Home() {
   // Global Mode
-  const [bgMode, setBgMode] = useState<'dots' | 'bars'>('dots');
+  const [bgMode, setBgMode] = useState<BgMode>('dots');
   const [gradientFrom, setGradientFrom] = useState('#ff0080'); // pink
   const [gradientTo, setGradientTo] = useState('#7928ca'); // purple
   const [backgroundColor, setBackgroundColor] = useState('#050505'); // background
@@ -284,6 +311,14 @@ export default function Home() {
   const [barGlow, setBarGlow] = useState(true);
   const [barTopFade, setBarTopFade] = useState(30);
   const [barOpacity, setBarOpacity] = useState(1);
+
+  // Base Shader State
+  const [shaderEnabled, setShaderEnabled] = useState(true);
+  const [shaderSpeed, setShaderSpeed] = useState(0.6);
+  const [shaderScale, setShaderScale] = useState(2);
+  const [shaderIntensity, setShaderIntensity] = useState(0.55);
+  const [shaderDistortion, setShaderDistortion] = useState(2.2);
+  const [shaderGrain, setShaderGrain] = useState(false);
 
   // Helper to apply preset colors
   const applyPreset = (from: string, to: string) => {
@@ -332,6 +367,8 @@ export default function Home() {
     waveIntensity, waveEnabled, hoverColor,
     barShape, barPulseMode, barNoise, barEdgeFeather,
     barGlow, barTopFade, barOpacity,
+    shaderEnabled, shaderSpeed, shaderScale,
+    shaderIntensity, shaderDistortion, shaderGrain,
   }), [
     bgMode, gradientFrom, gradientTo, backgroundColor,
     dotRadius, dotSpacing, waveSpeed, maxWaveHeight,
@@ -339,6 +376,8 @@ export default function Home() {
     waveIntensity, waveEnabled, hoverColor,
     barShape, barPulseMode, barNoise, barEdgeFeather,
     barGlow, barTopFade, barOpacity,
+    shaderEnabled, shaderSpeed, shaderScale,
+    shaderIntensity, shaderDistortion, shaderGrain,
   ]);
 
   const handleCopyConfig = useCallback(async () => {
@@ -378,6 +417,12 @@ export default function Home() {
       if (cfg.barGlow !== undefined) setBarGlow(cfg.barGlow);
       if (cfg.barTopFade !== undefined) setBarTopFade(cfg.barTopFade);
       if (cfg.barOpacity !== undefined) setBarOpacity(cfg.barOpacity);
+      if (cfg.shaderEnabled !== undefined) setShaderEnabled(cfg.shaderEnabled);
+      if (cfg.shaderSpeed !== undefined) setShaderSpeed(cfg.shaderSpeed);
+      if (cfg.shaderScale !== undefined) setShaderScale(cfg.shaderScale);
+      if (cfg.shaderIntensity !== undefined) setShaderIntensity(cfg.shaderIntensity);
+      if (cfg.shaderDistortion !== undefined) setShaderDistortion(cfg.shaderDistortion);
+      if (cfg.shaderGrain !== undefined) setShaderGrain(cfg.shaderGrain);
       setPasteStatus('ok');
     } catch {
       setPasteStatus('err');
@@ -404,7 +449,7 @@ export default function Home() {
           gradientTo={gradientTo}
           backgroundColor={backgroundColor}
         />
-      ) : (
+      ) : bgMode === 'bars' ? (
         <GradientBars
           shape={barShape}
           gradientFrom={gradientFrom}
@@ -418,6 +463,18 @@ export default function Home() {
           topFade={barTopFade}
           baseOpacity={barOpacity}
           backgroundColor={backgroundColor}
+        />
+      ) : (
+        <ShaderBackground
+          gradientFrom={gradientFrom}
+          gradientTo={gradientTo}
+          backgroundColor={backgroundColor}
+          shaderSpeed={shaderSpeed}
+          shaderScale={shaderScale}
+          shaderIntensity={shaderIntensity}
+          shaderDistortion={shaderDistortion}
+          shaderEnabled={shaderEnabled}
+          shaderGrain={shaderGrain}
         />
       )}
 
@@ -454,6 +511,12 @@ export default function Home() {
           barNoise={barNoise} setBarNoise={setBarNoise}
           barEdgeFeather={barEdgeFeather} setBarEdgeFeather={setBarEdgeFeather}
           barGlow={barGlow} setBarGlow={setBarGlow}
+          shaderEnabled={shaderEnabled} setShaderEnabled={setShaderEnabled}
+          shaderSpeed={shaderSpeed} setShaderSpeed={setShaderSpeed}
+          shaderScale={shaderScale} setShaderScale={setShaderScale}
+          shaderIntensity={shaderIntensity} setShaderIntensity={setShaderIntensity}
+          shaderDistortion={shaderDistortion} setShaderDistortion={setShaderDistortion}
+          shaderGrain={shaderGrain} setShaderGrain={setShaderGrain}
         />
       </div>
 
@@ -523,6 +586,12 @@ export default function Home() {
                 barNoise={barNoise} setBarNoise={setBarNoise}
                 barEdgeFeather={barEdgeFeather} setBarEdgeFeather={setBarEdgeFeather}
                 barGlow={barGlow} setBarGlow={setBarGlow}
+                shaderEnabled={shaderEnabled} setShaderEnabled={setShaderEnabled}
+                shaderSpeed={shaderSpeed} setShaderSpeed={setShaderSpeed}
+                shaderScale={shaderScale} setShaderScale={setShaderScale}
+                shaderIntensity={shaderIntensity} setShaderIntensity={setShaderIntensity}
+                shaderDistortion={shaderDistortion} setShaderDistortion={setShaderDistortion}
+                shaderGrain={shaderGrain} setShaderGrain={setShaderGrain}
               />
             </div>
           </div>
