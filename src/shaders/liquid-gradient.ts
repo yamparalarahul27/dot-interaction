@@ -1,6 +1,8 @@
 import type { ShaderDef } from './types';
 import { flattenColors } from './webgl';
 
+const MAX_COLORS = 8;
+
 const FRAGMENT = `#version 300 es
 precision highp float;
 
@@ -11,9 +13,11 @@ uniform float u_scale;
 uniform float u_amplitude;
 uniform float u_frequency;
 uniform int   u_definition;
-uniform int   u_bands;
+uniform float u_bands;
+uniform float u_bias;
 uniform float u_grain;
-uniform vec3  u_colors[5];
+uniform int   u_colorCount;
+uniform vec3  u_colors[${MAX_COLORS}];
 
 out vec4 fragColor;
 
@@ -37,7 +41,7 @@ float valueNoise(vec2 p) {
 float fbm(vec2 p) {
   float v = 0.0;
   float amp = 0.5;
-  for (int i = 0; i < 8; i++) {
+  for (int i = 0; i < 12; i++) {
     if (i >= u_definition) break;
     v += amp * valueNoise(p);
     p *= 2.02;
@@ -46,33 +50,29 @@ float fbm(vec2 p) {
   return v;
 }
 
-// Sample a 5-stop palette with t in [0, 1] using smoothstep between stops.
+// Sample the active palette (u_colorCount stops) with t in [0, 1].
 vec3 palette(float t) {
   t = clamp(t, 0.0, 1.0);
-  float x = t * 4.0;
+  int n = max(u_colorCount, 2);
+  float x = t * float(n - 1);
   int idx = int(floor(x));
-  float f = fract(x);
+  idx = clamp(idx, 0, n - 2);
+  float f = x - float(idx);
   f = smoothstep(0.0, 1.0, f);
-  vec3 a = u_colors[0];
-  vec3 b = u_colors[1];
-  if (idx == 1) { a = u_colors[1]; b = u_colors[2]; }
-  else if (idx == 2) { a = u_colors[2]; b = u_colors[3]; }
-  else if (idx >= 3) { a = u_colors[3]; b = u_colors[4]; }
-  return mix(a, b, f);
+  return mix(u_colors[idx], u_colors[idx + 1], f);
 }
 
 void main() {
   vec2 uv = gl_FragCoord.xy / u_resolution.xy;
   vec2 p = (gl_FragCoord.xy - 0.5 * u_resolution.xy) / min(u_resolution.x, u_resolution.y);
 
-  // "Scale" reads as zoom — larger number = more detail on screen. Invert so
-  // that small scale values give broad, liquid shapes.
+  // "Scale" reads as zoom — small values give broad liquid shapes.
   float zoom = 1.0 / max(u_scale, 0.01);
   p *= zoom * u_frequency;
 
   float t = u_time;
 
-  // Domain warping — two levels of offset driven by fbm, scaled by amplitude.
+  // Domain warp (amplitude == 0 collapses warp but still animates via t).
   vec2 q = vec2(
     fbm(p + vec2(0.0, 0.0) + 0.6 * t),
     fbm(p + vec2(5.2, 1.3) - 0.4 * t)
@@ -84,13 +84,17 @@ void main() {
   float f = fbm(p + u_amplitude * r);
   f = clamp(f * 0.5 + 0.5, 0.0, 1.0);
 
-  // Posterise into bands while keeping a soft roll between them.
-  float nb = float(max(u_bands, 1));
+  // Bias: <1 darkens, >1 brightens before palette sampling.
+  f = pow(f, 1.0 / max(u_bias, 0.05));
+
+  // Fractional banding: bands < 1 softens to a smooth sweep, bands >= 1
+  // posterises with soft edges between bins.
+  float nb = max(u_bands, 0.0001);
   float scaled = f * nb;
   float band = floor(scaled);
   float frac = scaled - band;
   float soft = smoothstep(0.35, 0.65, frac);
-  float quantised = (band + soft) / nb;
+  float quantised = nb >= 1.0 ? (band + soft) / nb : f;
 
   vec3 col = palette(quantised);
 
@@ -99,7 +103,6 @@ void main() {
     col += (n - 0.5) * u_grain;
   }
 
-  // Subtle vignette so edges feel premium on card masks.
   float vig = smoothstep(1.2, 0.4, length(uv - 0.5));
   col *= mix(0.85, 1.0, vig);
 
@@ -109,55 +112,65 @@ void main() {
 
 export const liquidGradient: ShaderDef = {
   id: 'liquid-gradient',
-  name: 'Hologram',
-  tag: 'Liquid Gradient',
-  description:
-    'Works great on cards, coupons, pricing sections, or anything that benefits from that "premium but playful" feel.',
-  proTip:
-    'Use masks. The shader doesn\'t have to fill a rectangle — throw a mask on it and let it bleed into the background. Keeps text readable and looks way cooler.',
+  name: 'Liquid Gradient',
   fragment: FRAGMENT,
   params: [
     {
       kind: 'colors',
       key: 'colors',
       label: 'Colors',
-      count: 5,
+      min: 2,
+      max: MAX_COLORS,
       default: ['#0051FF', '#4DFF00', '#FFE500', '#FF6F00', '#0051FF'],
     },
-    { kind: 'slider', key: 'seed', label: 'Seed', min: 0, max: 100, step: 1, default: 0 },
-    { kind: 'slider', key: 'speed', label: 'Speed', min: 0, max: 2, step: 0.01, default: 0.21 },
-    { kind: 'slider', key: 'scale', label: 'Scale', min: 0.05, max: 2, step: 0.01, default: 0.15 },
+    { kind: 'slider', key: 'seed', label: 'Seed', min: 0, max: 1000, step: 1, default: 0 },
+    { kind: 'slider', key: 'speed', label: 'Speed', min: 0, max: 3, step: 0.01, default: 0.21 },
+    { kind: 'slider', key: 'scale', label: 'Scale', min: 0.05, max: 3, step: 0.01, default: 0.15 },
     { kind: 'slider', key: 'amplitude', label: 'Amplitude', min: 0, max: 2, step: 0.01, default: 0.6 },
     { kind: 'slider', key: 'frequency', label: 'Frequency', min: 0.1, max: 3, step: 0.01, default: 0.51 },
-    { kind: 'slider', key: 'definition', label: 'Definition', min: 1, max: 8, step: 1, default: 6 },
-    { kind: 'slider', key: 'bands', label: 'Bands', min: 1, max: 12, step: 1, default: 5 },
-    { kind: 'select', key: 'noise', label: 'Noise', options: ['None', 'Grain'], default: 'Grain' },
+    { kind: 'slider', key: 'definition', label: 'Definition', min: 1, max: 12, step: 1, default: 6 },
+    { kind: 'slider', key: 'bands', label: 'Bands', min: 0, max: 12, step: 0.1, default: 5 },
+    { kind: 'slider', key: 'bias', label: 'Bias', min: 0.2, max: 2, step: 0.01, default: 1 },
+    { kind: 'select', key: 'noise', label: 'Noise', options: ['Off', 'Grain'], default: 'Grain' },
     { kind: 'slider', key: 'amount', label: 'Amount', min: 0, max: 0.5, step: 0.01, default: 0.05 },
   ],
   buildRenderer(gl, program) {
-    const uResolution = gl.getUniformLocation(program, 'u_resolution');
-    const uTime = gl.getUniformLocation(program, 'u_time');
-    const uSeed = gl.getUniformLocation(program, 'u_seed');
-    const uScale = gl.getUniformLocation(program, 'u_scale');
-    const uAmplitude = gl.getUniformLocation(program, 'u_amplitude');
-    const uFrequency = gl.getUniformLocation(program, 'u_frequency');
-    const uDefinition = gl.getUniformLocation(program, 'u_definition');
-    const uBands = gl.getUniformLocation(program, 'u_bands');
-    const uGrain = gl.getUniformLocation(program, 'u_grain');
-    const uColors = gl.getUniformLocation(program, 'u_colors');
+    const u_resolution = gl.getUniformLocation(program, 'u_resolution');
+    const u_time = gl.getUniformLocation(program, 'u_time');
+    const u_seed = gl.getUniformLocation(program, 'u_seed');
+    const u_scale = gl.getUniformLocation(program, 'u_scale');
+    const u_amplitude = gl.getUniformLocation(program, 'u_amplitude');
+    const u_frequency = gl.getUniformLocation(program, 'u_frequency');
+    const u_definition = gl.getUniformLocation(program, 'u_definition');
+    const u_bands = gl.getUniformLocation(program, 'u_bands');
+    const u_bias = gl.getUniformLocation(program, 'u_bias');
+    const u_grain = gl.getUniformLocation(program, 'u_grain');
+    const u_colorCount = gl.getUniformLocation(program, 'u_colorCount');
+    const u_colors = gl.getUniformLocation(program, 'u_colors');
+
+    const padded = new Float32Array(MAX_COLORS * 3);
 
     return (values, time, width, height) => {
-      gl.uniform2f(uResolution, width, height);
-      gl.uniform1f(uTime, time);
-      gl.uniform1f(uSeed, values.seed as number);
-      gl.uniform1f(uScale, values.scale as number);
-      gl.uniform1f(uAmplitude, values.amplitude as number);
-      gl.uniform1f(uFrequency, values.frequency as number);
-      gl.uniform1i(uDefinition, Math.round(values.definition as number));
-      gl.uniform1i(uBands, Math.round(values.bands as number));
-      const grainAmount = values.noise === 'Grain' ? (values.amount as number) : 0;
-      gl.uniform1f(uGrain, grainAmount);
-      gl.uniform3fv(uColors, flattenColors(values.colors as string[]));
+      gl.uniform2f(u_resolution, width, height);
+      gl.uniform1f(u_time, time);
+      gl.uniform1f(u_seed, values.seed as number);
+      gl.uniform1f(u_scale, values.scale as number);
+      gl.uniform1f(u_amplitude, values.amplitude as number);
+      gl.uniform1f(u_frequency, values.frequency as number);
+      gl.uniform1i(u_definition, Math.round(values.definition as number));
+      gl.uniform1f(u_bands, values.bands as number);
+      gl.uniform1f(u_bias, (values.bias as number) ?? 1);
+      const amount = values.noise === 'Grain' ? (values.amount as number) : 0;
+      gl.uniform1f(u_grain, amount);
+
+      const colors = (values.colors as string[]).slice(0, MAX_COLORS);
+      const count = Math.max(2, colors.length);
+      gl.uniform1i(u_colorCount, count);
+      const flat = flattenColors(colors);
+      padded.set(flat);
+      // Zero any trailing slots so dynamic indexing never reads stale data.
+      for (let i = flat.length; i < padded.length; i++) padded[i] = 0;
+      gl.uniform3fv(u_colors, padded);
     };
   },
 };

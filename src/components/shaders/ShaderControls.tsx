@@ -47,9 +47,33 @@ export default function ShaderControls({ params, values, onChange }: Props) {
         }
         if (p.kind === 'colors') {
           const list = values[p.key] as string[];
+          const canAdd = list.length < p.max;
+          const canRemove = list.length > p.min;
           return (
             <div key={p.key} className="flex flex-col gap-2">
-              <span className="text-xs text-neutral-400 font-medium">{p.label}</span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-neutral-400 font-medium">{p.label}</span>
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    disabled={!canRemove}
+                    onClick={() => onChange(p.key, list.slice(0, -1))}
+                    className="w-5 h-5 rounded border border-neutral-700 text-neutral-400 text-xs leading-none disabled:opacity-30 hover:text-white hover:border-neutral-500 transition-colors"
+                    title="Remove last color"
+                  >
+                    −
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!canAdd}
+                    onClick={() => onChange(p.key, [...list, list[list.length - 1] ?? '#ffffff'])}
+                    className="w-5 h-5 rounded border border-neutral-700 text-neutral-400 text-xs leading-none disabled:opacity-30 hover:text-white hover:border-neutral-500 transition-colors"
+                    title="Add color"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
               <div className="flex flex-wrap gap-2">
                 {list.map((hex, i) => (
                   <input

@@ -1,19 +1,24 @@
 'use client';
 
 import { useState } from 'react';
-import type { ShaderDef, ParamValues } from '@/shaders/types';
-import { defaultsFor } from '@/shaders/types';
+import type { PresetDef, ShaderDef, ParamValues } from '@/shaders/types';
+import { resolvePreset } from '@/shaders/types';
 import ShaderCanvas from './ShaderCanvas';
 import ShaderControls from './ShaderControls';
 
-export default function ShaderCard({ shader }: { shader: ShaderDef }) {
-  const [values, setValues] = useState<ParamValues>(() => defaultsFor(shader));
+interface Props {
+  preset: PresetDef;
+  shader: ShaderDef;
+}
+
+export default function ShaderCard({ preset, shader }: Props) {
+  const [values, setValues] = useState<ParamValues>(() => resolvePreset(preset, shader));
 
   const update = (key: string, value: ParamValues[string]) => {
     setValues((prev) => ({ ...prev, [key]: value }));
   };
 
-  const reset = () => setValues(defaultsFor(shader));
+  const reset = () => setValues(resolvePreset(preset, shader));
 
   return (
     <section className="rounded-2xl border border-white/10 bg-neutral-950/80 overflow-hidden shadow-2xl">
@@ -21,10 +26,10 @@ export default function ShaderCard({ shader }: { shader: ShaderDef }) {
         <div className="relative aspect-[16/10] lg:aspect-auto lg:min-h-[420px] bg-black">
           <ShaderCanvas shader={shader} values={values} speedKey="speed" />
           <div className="absolute top-4 left-4 flex flex-col gap-1 text-white/90 drop-shadow-lg">
-            <span className="text-[10px] uppercase tracking-[0.2em] text-white/60">Shader</span>
-            <h3 className="text-xl font-semibold">{shader.name}</h3>
+            <span className="text-[10px] uppercase tracking-[0.2em] text-white/60">Preset</span>
+            <h3 className="text-xl font-semibold">{preset.name}</h3>
             <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 border border-white/15 w-fit backdrop-blur">
-              {shader.tag}
+              {shader.name}
             </span>
           </div>
         </div>
@@ -33,7 +38,7 @@ export default function ShaderCard({ shader }: { shader: ShaderDef }) {
           <div className="flex items-start justify-between gap-3">
             <div className="flex flex-col gap-1">
               <span className="text-[10px] uppercase tracking-[0.2em] text-neutral-500">Controls</span>
-              <h4 className="text-sm font-semibold text-white tracking-wide">{shader.name}</h4>
+              <h4 className="text-sm font-semibold text-white tracking-wide">{preset.name}</h4>
             </div>
             <button
               onClick={reset}
@@ -43,14 +48,16 @@ export default function ShaderCard({ shader }: { shader: ShaderDef }) {
             </button>
           </div>
 
-          <p className="text-xs leading-relaxed text-neutral-400">{shader.description}</p>
+          {preset.description && (
+            <p className="text-xs leading-relaxed text-neutral-400">{preset.description}</p>
+          )}
 
           <ShaderControls params={shader.params} values={values} onChange={update} />
 
-          {shader.proTip && (
+          {preset.proTip && (
             <div className="rounded-lg border border-white/10 bg-white/5 p-3 text-xs text-neutral-300 leading-relaxed">
               <span className="font-semibold text-white">Pro tip. </span>
-              {shader.proTip}
+              {preset.proTip}
             </div>
           )}
         </div>
